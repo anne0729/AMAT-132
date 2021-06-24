@@ -1,0 +1,130 @@
+##############################################
+#This files loads monthly consumer price index
+#of US Food and Beverage.
+#We will use this data to forecast the 
+#next 10 years monthly CPI.
+#
+#Created by: Joanne Capacillo 22/06/21 
+#AMAT 132
+##############################################
+
+#Clear all variables
+rm(list = ls())
+
+#Load the forecasting package
+library(fpp2)
+
+#Load the data
+CPI.Value <- read.csv("/Users/Lenovo/Desktop/forecasting/USFoodBeverage.csv")
+
+#View to check if data is complete
+CPI.Value
+
+#Declare data as time series
+Y <- ts(CPI.Value[,3],start = c(1967,1), frequency = 12)
+
+############################################
+# Preliminary Analysis
+############################################
+
+#Time Plot
+autoplot(Y)+  
+  ggtitle("Time Plot: US Food and Beverage Consumer Price Index Per Month")+
+  ylab("CPI Value")+
+  xlab("Year")
+
+ggseasonplot(Y)+
+  ggtitle("Season Plot: US Food and Beverage Consumer Price Index Per Month")+
+  ylab("CPI Value")+
+  xlab("Month")
+
+#RESULT: Data has a strong trend and has seasonality. 
+#Investigate transformations.
+
+#load package
+library(urca)
+
+#Unit root test, to test if differencing is needed
+Y%>% ur.kpss()%>% summary()
+
+# RESULT:test statistic = 8.6799 > 0.739
+# Data is not stationary.
+
+#Difference data and apply unit root test again.
+Y%>% diff () %>%ur.kpss()%>% summary()
+
+# RESULT:test statistic = 0.2881  > 0.739
+# Data is now stationary.
+
+#Identify number of differencing needed
+ndiffs(Y)
+
+#RESULT:ndiffs(Y) = [1] 1
+#First differencing must be applied.
+
+#First order differencing
+DY <- diff(Y)
+
+#Time Plot: First order differencing
+autoplot(DY)+  
+  ggtitle("Time Plot: US Food and Beverage Consumer Price Index Per Month")+
+  ylab("CPI Value")+
+  xlab("Year")
+
+#Season Plot : First order differencing
+ggseasonplot(DY)+
+  ggtitle("Season Plot: US Food and Beverage Consumer Price Index Per Month")+
+  ylab("CPI Value")+
+  xlab("Month")
+
+#Subseries: First order differencing
+ggsubseriesplot(DY)+
+  ggtitle("Subseries Plot: US Food and Beverage Consumer Price Index Per Month")+
+  ylab("CPI Value")+
+  xlab("Month")
+
+####################################################################
+# Series Y has trend and seasonality.
+# To remove trend, first order difference was taken.
+# The first differenced series still has seasonality.
+#
+# Forecast with various methods.
+####################################################################
+
+#############
+#Fit Snaive Method
+#############
+fit <- snaive(DY) 
+print(summary(fit))
+checkresiduals(fit)
+#Residual SD = 0.5215
+
+###################
+# Fit ETS Method
+###################
+fit_ets <- ets(Y) 
+print(summary(fit_ets))
+checkresiduals(fit_ets)
+# Residuals SD = 0.3453
+
+
+###################
+# Fit on ARIMA Model
+###################
+fit_arima <- auto.arima(Y, d=1, D=1, stepwise = FALSE, approximation = FALSE, trace = TRUE)
+print(summary(fit_arima)) 
+checkresiduals(fit_arima)
+#Residual SD = 0.4029888
+
+#Best model: ARIMA(2,1,1)(2,1,0)[12] 
+
+
+###################
+# Forecast with ARIMA Model
+##################
+
+# Forecast using ARIMA 4 years from 2017, including last 10 years
+fcst <- forecast(fit_arima,h=48)
+autoplot(fcst, include = 120) +
+  ylab("CPI Value")
+print(summary(fcst))
